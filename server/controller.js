@@ -1,3 +1,17 @@
+require('dotenv').config()
+const {CONNECTION_STRING} = process.env
+let Sequelize = require('sequelize')
+
+const sequelize = new Sequelize(CONNECTION_STRING, {
+    dialect: 'postgres',
+    dialectOptions: {
+        ssl: {
+            rejectUnauthorized: false
+        }
+    }
+  }
+)
+
 let nextEmp = 5
 
 module.exports = {
@@ -13,10 +27,22 @@ module.exports = {
             .catch(err => console.log(err))
     },
 
+    getPastAppointments: (req, res) => {
+        sequelize.query(`SELECT a.appt_id, a.date, a.service_type, a.approved, a.completed, a.notes, u.first_name, u.last_name 
+        FROM cc_appointments a
+        JOIN cc_emp_appts ea on a.appt_id = ea.appt_id
+        JOIN cc_employees e on e.emp_id = ea.emp_id
+        JOIN cc_users u on e.user_id = u.user_id
+        WHERE a.approved = true and a.completed = true`)
+        .then(dbRes => res.status(200).send(dbRes[0]))
+    },
+
     approveAppointment: (req, res) => {
         let {apptId} = req.body
     
-        sequelize.query(`*****YOUR CODE HERE*****
+        sequelize.query(`UPDATE cc_appointments AS a
+        SET a.approved = true
+        WHERE a.appt_id = ${apptId};
         
         insert into cc_emp_appts (emp_id, appt_id)
         values (${nextEmp}, ${apptId}),
@@ -27,5 +53,30 @@ module.exports = {
                 nextEmp += 2
             })
             .catch(err => console.log(err))
+    },
+
+    getAllClients: (req, res) => {
+        sequelize.query(`SELECT * 
+        FROM cc_users 
+        JOIN cc_clients 
+        ON cc_users.user_id = cc_clients.user_id`)
+        .then(dbres => res.status(200).send(dbres[0]))
+    },
+
+    getPendingAppointments: (req, res) => {
+        sequelize.query(`SELECT *
+        FROM cc_appointments a
+        WHERE a.approved = false
+        ORDER BY a.date`)
+        .then(dbres => res.status(200).send(dbres[0]))
+    },
+
+    completeAppointment: (req, res) => {
+        let {apptId} = req.body
+
+        sequelize.query(`UPDATE cc_appointments AS a
+        SET completed = true
+        WHERE a.appt_id = ${apptId}`)
+        .then(dbres => res.status(200).send(dbres[0]))
     }
 }
